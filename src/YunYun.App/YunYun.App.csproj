@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>YunYun.App</RootNamespace>
+    <AssemblyName>YunYun</AssemblyName>
+    <!-- x64: the Recycle Bin lookup reads explorer.exe memory, structures must match its bitness -->
+    <PlatformTarget>x64</PlatformTarget>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <ApplicationIcon>..\..\Assets\app.ico</ApplicationIcon>
+    <!-- dotnet publish -c Release  ->  one YunYun.exe with everything inside -->
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>false</SelfContained>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\YunYun.Core\YunYun.Core.csproj" />
+  </ItemGroup>
+
+  <!-- All pictures, sounds and the rig: one packed file, built from assets_src/ by tools/PackAssets.
+       Embedded into the exe, so there are no loose files next to it. -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\Assets\res.dat" LogicalName="res.dat" />
+    <EmbeddedResource Include="..\..\Assets\app.ico" LogicalName="app.ico" />
+  </ItemGroup>
+
+</Project>

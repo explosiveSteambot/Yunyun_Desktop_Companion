@@ -1,0 +1,8 @@
+bin/
+obj/
+.vs/
+*.user
+
+# Loose resource sources: everything the program needs is packed into Assets/res.dat
+assets_src/
+Assets/res.dat.tmp
