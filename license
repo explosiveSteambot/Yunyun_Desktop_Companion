@@ -1,0 +1,33 @@
+YunYun Desktop Companion
+Copyright (c) 2026 explosiveSteambot
+
+=============================================================================
+1. Source code
+=============================================================================
+
+The following applies to the source code of this project (everything except
+the resources described in section 2):
+
+/*
+ * ----------------------------------------------------------------------------
+ * "THE BEER-WARE LICENSE" (Revision 42):
+ * explosiveSteambot wrote this file. As long as you retain this notice you
+ * can do whatever you want with this stuff. If we meet some day, and you think
+ * this stuff is worth it, you can buy me a beer in return.
+ * ----------------------------------------------------------------------------
+ */
+
+=============================================================================
+2. Character art and sounds
+=============================================================================
+
+The character artwork, animation frames, layers and sounds (the contents of
+Assets/res.dat, yunyun/res.dat, assets_src/ and the program icons) depict
+YunYun from the game "YunYun Syndrome" and are NOT covered by the license
+above. All rights to them belong to their respective owners, the developers
+of "YunYun Syndrome". They are included with the developer's permission for
+non-commercial use only.
+
+You may use and redistribute them as part of this project for non-commercial
+purposes. Any commercial use of these resources requires permission from
+their owners.
