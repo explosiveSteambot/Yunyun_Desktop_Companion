@@ -61,7 +61,9 @@ def pack(src_dir, out_path=PACK_PATH):
         off += len(data)
     idx = json.dumps(index, separators=(",", ":")).encode("utf-8")
     body = zlib.compress(struct.pack("<I", len(idx)) + idx + b"".join(blobs), 9)
-    nonce = int.from_bytes(os.urandom(8), "little")
+    # nonce from the contents: re-packing unchanged assets gives a byte-identical res.dat,
+    # so git does not store a new 8 MB copy on every run of pack_assets.py
+    nonce = int.from_bytes(hashlib.sha256(body).digest()[:8], "little")
     tmp = out_path + ".tmp"
     with open(tmp, "wb") as f:
         f.write(MAGIC + struct.pack("<IQ", VERSION, nonce) + _xor(body, nonce))
