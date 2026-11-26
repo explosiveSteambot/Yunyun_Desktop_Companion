@@ -42,7 +42,8 @@ def _report(exc_type, exc, tb):
         pass
     if FROZEN and sys.platform.startswith("win"):
         import ctypes
-        ctypes.windll.user32.MessageBoxW(None, f"Что-то пошло не так:\n{exc}\n\nПодробности: {LOG_PATH}",
+        from yunyun.i18n import tr          # the language set by App, or the Windows one
+        ctypes.windll.user32.MessageBoxW(None, f"{tr('msg.crash')}\n{exc}\n\n{tr('msg.crash_details')} {LOG_PATH}",
                                          "YunYun", 0x10)           # MB_ICONERROR
     else:
         sys.__excepthook__(exc_type, exc, tb)

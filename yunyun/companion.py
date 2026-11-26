@@ -9,6 +9,7 @@ from PySide6.QtGui import QCursor, QGuiApplication, QImage, QPainter
 from PySide6.QtWidgets import QMenu, QWidget
 
 from . import geometry, recyclebin, winlayer
+from .i18n import tr
 from .config import LAYER_DESKTOP, Settings
 
 GRAB_FIRST_SOUND = 1.0                  # s after the grab
@@ -45,7 +46,6 @@ class Companion(QWidget):
         self.pack = pack                 # packed resources (yunyun/assets.py)
         self.s = settings
         self.rd = ragdoll_cls(pack.reader("rig"))
-        self.grab = np.array(self.rd.grab_point, float)
         self._load_idle()
         self.dragging = False
         # Grab-sound timing is checked in tick(), not with a separate QTimer: on Windows timer
@@ -66,10 +66,12 @@ class Companion(QWidget):
 
     # ------------------------------------------------------------------ setup
     def _load_idle(self):
-        frames = [self.pack.image(p) for p in self.pack.list("idle", ".png")]
+        frames = [self.pack.image(p).convert("RGBA") for p in self.pack.list("idle", ".png")]
+        if self.s.mirror_idle:
+            frames = [f.transpose(Image.FLIP_LEFT_RIGHT) for f in frames]
         sc = self.s.idle_scale
         size = (max(1, int(frames[0].width * sc)), max(1, int(frames[0].height * sc)))
-        self.idle = [to_qimage(premul(f.convert("RGBA").resize(size, Image.LANCZOS))) for f in frames]
+        self.idle = [to_qimage(premul(f.resize(size, Image.LANCZOS))) for f in frames]
         # opaque part of the resting pose: only it must stay on the work area
         union = None
         for f in frames:
@@ -113,7 +115,7 @@ class Companion(QWidget):
     def apply_settings(self, s: Settings):
         old = self.s
         self.s = s
-        if s.idle_scale != old.idle_scale:
+        if s.idle_scale != old.idle_scale or s.mirror_idle != old.mirror_idle:
             center = self.geometry().center()
             self._load_idle()
             self._load_reactions()
@@ -201,9 +203,23 @@ class Companion(QWidget):
         winlayer.apply(self, self.s.layer)
 
     # ------------------------------------------------------------------ drag
+    # Mirrored drag: the physics runs in a mirrored world (x -> -x, so moving right on screen is
+    # moving left for the ragdoll) and the rendered picture is flipped back; the parts then swing
+    # the right way for the flipped picture.
+    def _grab_point(self):
+        gx, gy = self.rd.grab_point
+        return (self.rd.W - gx if self.s.mirror_drag else gx), gy
+
+    def _rig_pos(self, pos):
+        """Window position on screen -> canvas origin for the physics, in rig pixels."""
+        sc = self.s.scale
+        x = pos.x() / sc
+        return (-x if self.s.mirror_drag else x), pos.y() / sc
+
     def window_pos_for(self, cursor):
-        g = self.grab * self.s.scale
-        return QPoint(int(cursor.x() - g[0]), int(cursor.y() - g[1]))
+        gx, gy = self._grab_point()
+        sc = self.s.scale
+        return QPoint(int(cursor.x() - gx * sc), int(cursor.y() - gy * sc))
 
     def start_drag(self, cursor):
         if self.reacting:
@@ -214,7 +230,7 @@ class Companion(QWidget):
         self.resize(int(self.rd.W * sc), int(self.rd.H * sc))
         pos = self.window_pos_for(cursor)
         self.move(pos)
-        self.rd.reset(pos.x() / sc, pos.y() / sc)        # physics works in rig pixels
+        self.rd.reset(*self._rig_pos(pos))               # physics works in rig pixels
         winlayer.apply(self, self.s.layer)               # the chosen layer, also while dragged
         self.next_grab_sound = time.perf_counter() + GRAB_FIRST_SOUND
         self.grab_started.emit()
@@ -243,10 +259,10 @@ class Companion(QWidget):
         if self.reacting:
             return
         m = QMenu(self)
-        m.addAction("Спрятать в трей", self.hide_requested.emit)
-        m.addAction("Настройки…", self.settings_requested.emit)
+        m.addAction(tr("menu.hide_to_tray"), self.hide_requested.emit)
+        m.addAction(tr("menu.settings"), self.settings_requested.emit)
         m.addSeparator()
-        m.addAction("Выход", self.quit_requested.emit)
+        m.addAction(tr("menu.exit"), self.quit_requested.emit)
         m.exec(e.globalPos())
 
     def tick(self):
@@ -256,11 +272,13 @@ class Companion(QWidget):
             if not (QGuiApplication.mouseButtons() & Qt.LeftButton):   # release happened outside the window
                 self.end_drag()
                 return
-            sc = self.s.scale
             pos = self.window_pos_for(QCursor.pos())
             self.move(pos)
-            self.rd.step(dt, pos.x() / sc, pos.y() / sc)
-            self.frame = to_qimage(self.rd.render(premultiplied=True))
+            self.rd.step(dt, *self._rig_pos(pos))
+            rgba = self.rd.render(premultiplied=True)
+            if self.s.mirror_drag:
+                rgba = np.ascontiguousarray(rgba[:, ::-1])
+            self.frame = to_qimage(rgba)
             if self._over_bin(QCursor.pos()):
                 self.dragging = False
                 self.next_grab_sound = None

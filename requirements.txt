@@ -1,5 +1,6 @@
 # runtime
 PySide6-Essentials>=6.5
+PySide6-Addons>=6.5; sys_platform != "win32"     # QtMultimedia (sound off Windows); Windows uses winsound
 numpy
 opencv-python-headless
 pillow

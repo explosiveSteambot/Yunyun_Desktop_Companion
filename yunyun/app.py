@@ -6,7 +6,8 @@ from PySide6.QtCore import QPoint, QStandardPaths, QTimer
 from PySide6.QtGui import QAction, QIcon, QPixmap
 from PySide6.QtWidgets import QApplication, QMenu, QMessageBox, QSystemTrayIcon
 
-from . import autostart, config
+from . import autostart, config, i18n
+from .i18n import tr
 from .companion import Companion, premul, to_qimage
 from .settings_dialog import SettingsDialog
 from .sound import Sound
@@ -34,6 +35,7 @@ class App:
         self.qt.setQuitOnLastWindowClosed(False)        # closing the settings window must not quit
         self.cfg_path = config_path()
         self.s = config.load(self.cfg_path)
+        i18n.set_language(self.s.language)
         try:
             autostart.repair_path()
             self.s.autostart = autostart.is_enabled()   # the registry decides (can be changed in Task Manager)
@@ -65,12 +67,12 @@ class App:
             self.tray = QSystemTrayIcon(icon)
             self.tray.setToolTip("YunYun")
             menu = QMenu()
-            self.act_toggle = QAction("Спрятать", menu)
+            self.act_toggle = QAction(tr("menu.hide"), menu)
             self.act_toggle.triggered.connect(self.toggle)
             menu.addAction(self.act_toggle)
-            menu.addAction("Настройки…", self.open_settings)
+            self.act_settings = menu.addAction(tr("menu.settings"), self.open_settings)
             menu.addSeparator()
-            menu.addAction("Выход", self.quit)
+            self.act_exit = menu.addAction(tr("menu.exit"), self.quit)
             self.tray.setContextMenu(menu)
             self._menu = menu
             self.tray.activated.connect(self._tray_click)
@@ -85,13 +87,13 @@ class App:
     def show_companion(self):
         self.comp.start()
         if self.tray:
-            self.act_toggle.setText("Спрятать")
+            self.act_toggle.setText(tr("menu.hide"))
 
     def hide_companion(self):
         if not self.tray:                      # no tray on this desktop: hiding would lose her
             return
         self.comp.stop()
-        self.act_toggle.setText("Показать")
+        self.act_toggle.setText(tr("menu.show"))
 
     def toggle(self):
         if self.comp.isVisible():
@@ -138,13 +140,38 @@ class App:
                 autostart.set_enabled(s.autostart)
         except OSError as e:
             s.autostart = not s.autostart
-            QMessageBox.warning(None, "YunYun", f"Не удалось изменить автозапуск:\n{e}")
+            QMessageBox.warning(None, "YunYun", f"{tr('msg.autostart_failed')}\n{e}")
+        language_changed = i18n.resolve(s.language) != i18n.resolve(self.s.language)
         self.s = s
+        if language_changed:
+            self._set_language()
         self.comp.apply_settings(s)
         self.sound.set_volume(s.volume, s.muted)
         if reset_pos:
             self.comp._place_initial()
         self.save()
+
+    def _set_language(self):
+        """New UI language: the tray menu is renamed, the settings window is rebuilt."""
+        i18n.set_language(self.s.language)
+        if self.tray:
+            self.act_toggle.setText(tr("menu.hide") if self.comp.isVisible() else tr("menu.show"))
+            self.act_settings.setText(tr("menu.settings"))
+            self.act_exit.setText(tr("menu.exit"))
+        old = self.dialog
+        if old is None:
+            return
+        self.dialog = None
+
+        def rebuild():                  # later: we are inside the old dialog's Apply / OK handler
+            if old.isVisible():         # Apply: reopen in the new language, same place and tab
+                pos, tab = old.pos(), old.tabs.currentIndex()
+                old.close()
+                self.open_settings()
+                self.dialog.move(pos)
+                self.dialog.tabs.setCurrentIndex(tab)
+            old.deleteLater()
+        QTimer.singleShot(0, rebuild)
 
     def save(self):
         if self.s.remember_position and not self.comp.dragging and not self.comp.reacting:

@@ -9,10 +9,14 @@ This keeps the resources out of sight, it is not protection against someone dete
 the key is in this (readable) source code, as with any program that has to show its own
 pictures.
 
-Layout of res.dat:
+Layout of res.dat (little-endian; the same format as the C# version, Core/ResourcePack.cs,
+so one res.dat serves both):
     MAGIC (8 bytes) | version u32 | nonce u64 | payload
-    payload = zlib(index_len u32 | index json | blobs)  XOR  keystream(KEY, nonce)
-    index   = {"path": [offset, size], ...}   offsets relative to the end of the index
+    payload   = zlib(index_len u32 | index json | blobs)  XOR  keystream
+    index     = {"path": [offset, size], ...}   offsets relative to the end of the index
+    nonce     = first 8 bytes of sha256(zlib data)  (same contents -> byte-identical file)
+    keystream: seed = first 8 bytes of sha256(KEY | nonce) as u64,
+               word i (i = 1, 2, ...) = splitmix64(seed + i * 0x9E3779B97F4A7C15), bytes little-endian
 
 Building: python tools/pack_assets.py   (assets_src/ -> yunyun/res.dat)
 """
@@ -26,15 +30,20 @@ import zlib
 import numpy as np
 
 MAGIC = b"\x93YYRES\r\n"
-VERSION = 1
+VERSION = 2
 KEY = b"yunyun-desktop/they-are-just-pictures"
 PACK_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "res.dat")
 
 
 def _keystream(nonce, n):
-    seed = int.from_bytes(hashlib.sha256(KEY + struct.pack("<Q", nonce)).digest(), "little")
-    words = np.random.PCG64(seed).random_raw((n + 7) // 8)        # raw PCG64 output is stable across numpy versions
-    return np.ascontiguousarray(words, dtype="<u8").view(np.uint8)[:n]
+    seed = int.from_bytes(hashlib.sha256(KEY + struct.pack("<Q", nonce)).digest()[:8], "little")
+    # splitmix64, vectorised; uint64 arithmetic wraps around like C# unchecked ulong
+    with np.errstate(over="ignore"):
+        z = np.uint64(seed) + np.arange(1, (n + 7) // 8 + 1, dtype=np.uint64) * np.uint64(0x9E3779B97F4A7C15)
+        z = (z ^ (z >> np.uint64(30))) * np.uint64(0xBF58476D1CE4E5B9)
+        z = (z ^ (z >> np.uint64(27))) * np.uint64(0x94D049BB133111EB)
+        z ^= z >> np.uint64(31)
+    return np.ascontiguousarray(z, dtype="<u8").view(np.uint8)[:n]
 
 
 def _xor(data, nonce):

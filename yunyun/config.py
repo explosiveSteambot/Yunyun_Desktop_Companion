@@ -18,8 +18,11 @@ class Settings:
     idle_scale: float = 0.6          # size of the resting (idle) animation (0.2 .. 1.0)
     volume: int = 70                 # sound volume, 0..100 (sound is not added yet)
     muted: bool = False
+    mirror_idle: bool = False        # resting animation flipped left <-> right
+    mirror_drag: bool = False        # dragged character (ragdoll) flipped left <-> right
     fps: int = 60                    # animation / physics rate
     layer: str = LAYER_DESKTOP       # see LAYERS
+    language: str = "auto"           # "auto" (as in Windows) or a code from i18n.LANGUAGES
     start_hidden: bool = False       # start minimised to the tray
     remember_position: bool = True
     position: list | None = None     # last resting position [x, y] (window top-left)
@@ -31,9 +34,13 @@ class Settings:
         self.idle_scale = min(1.0, max(0.2, float(self.idle_scale)))
         self.volume = int(min(100, max(0, int(self.volume))))
         self.muted = bool(self.muted)
+        self.mirror_idle = bool(self.mirror_idle)
+        self.mirror_drag = bool(self.mirror_drag)
         self.fps = int(min(120, max(15, int(self.fps))))
         if self.layer not in LAYERS:
             self.layer = LAYER_DESKTOP
+        if self.language not in ("auto", "en", "ru"):     # keep in sync with i18n.LANGUAGES
+            self.language = "auto"
         if self.position is not None and (len(self.position) != 2):
             self.position = None
         return self
