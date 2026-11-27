@@ -59,7 +59,7 @@ def _single_instance():
 if __name__ == "__main__":
     if FROZEN and sys.stderr is None:            # windowed exe: no console, keep warnings in the log
         sys.stdout = sys.stderr = _log_stream()
-    sys.excepthook = _report                     # also catches errors in Qt slots
+    sys.excepthook = _report                     # also catches errors in Qt
     lock = _single_instance()
     if lock is None:
         sys.exit(0)                              # already running (e.g. autostart + a manual launch)
